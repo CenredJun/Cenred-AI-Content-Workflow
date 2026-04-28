@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Content & SEO Workflow — Cenred AI</title>
+  <meta name="description" content="Topic in → AI researches → drafts blog post → generates SEO meta → publishes to Ghost CMS. Fully automated with n8n + Claude." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:#fdf6f0; --surface:#ffffff; --border:#ead7c5; --border2:#dcc2a9;
+      --ink:#1c1306; --ink2:#5a4632; --ink3:#9a8268;
+      --orange:#c2410c; --orange2:#ea580c; --orange3:#fb923c; --orange-bg:#fff1e6; --orange-soft:#ffe4cf;
+      --green:#15803d; --green-bg:#dcfce7;
+      --red:#b91c1c; --red-bg:#fee2e2;
+      --amber:#a16207; --amber-bg:#fef3c7;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); font-size:14px; line-height:1.6; min-height:100vh; }
+
+    nav { background:var(--surface); border-bottom:1px solid var(--border); padding:0 32px; height:54px; display:flex; align-items:center; justify-content:space-between; }
+    .nav-logo { display:flex; align-items:center; gap:10px; }
+    .nav-icon { width:30px; height:30px; background:linear-gradient(135deg, var(--orange) 0%, var(--orange3) 100%); border-radius:7px; display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:14px; }
+    .nav-name { font-size:14px; font-weight:600; color:var(--ink); letter-spacing:-0.01em; }
+    .nav-sep { width:1px; height:14px; background:var(--border2); margin:0 4px; }
+    .nav-product { font-size:13px; color:var(--ink3); }
+    .nav-links { display:flex; gap:22px; }
+    .nav-link { font-size:13px; color:var(--ink3); text-decoration:none; transition:color 0.15s; }
+    .nav-link:hover { color:var(--orange); }
+
+    .page { max-width:920px; margin:0 auto; padding:48px 24px 80px; }
+
+    .hero { margin-bottom:40px; }
+    .hero-label { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--orange); background:var(--orange-bg); padding:5px 11px; border-radius:100px; margin-bottom:18px; border:1px solid var(--orange-soft); }
+    .hero-dot { width:5px; height:5px; background:var(--orange); border-radius:50%; }
+    .hero h1 { font-family:'Playfair Display',serif; font-size:clamp(34px,5vw,52px); font-weight:700; color:var(--ink); line-height:1.12; letter-spacing:-0.02em; margin-bottom:14px; }
+    .hero h1 em { font-style:italic; color:var(--orange); }
+    .hero-desc { font-size:16px; color:var(--ink2); max-width:540px; font-weight:300; line-height:1.65; }
+
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; margin-bottom:16px; overflow:hidden; }
+    .card-header { padding:14px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; }
+    .card-step { width:24px; height:24px; background:var(--orange); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; color:white; flex-shrink:0; }
+    .card-title { font-size:13px; font-weight:600; color:var(--ink); letter-spacing:-0.01em; }
+    .card-sub { font-size:12px; color:var(--ink3); margin-left:auto; }
+    .card-body { padding:24px; }
+
+    .field-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:14px; }
+    .field-row.full { grid-template-columns:1fr; }
+    .field { display:flex; flex-direction:column; gap:6px; }
+    .field-label { font-size:11px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--ink3); }
+    .field-hint { font-size:11px; color:var(--ink3); font-weight:400; text-transform:none; letter-spacing:0; }
+    input[type=text], select, textarea {
+      width:100%; padding:10px 12px; border:1px solid var(--border2); border-radius:8px;
+      font-family:'Inter',sans-serif; font-size:14px; background:var(--surface); color:var(--ink);
+      transition:border-color 0.15s, box-shadow 0.15s;
+    }
+    input[type=text]:focus, select:focus, textarea:focus { outline:none; border-color:var(--orange3); box-shadow:0 0 0 3px var(--orange-bg); }
+    select { cursor:pointer; appearance:none; background-image:url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3e%3cpath fill='%239a8268' d='M6 8L0 0h12z'/%3e%3c/svg%3e"); background-repeat:no-repeat; background-position:right 14px center; background-size:10px; padding-right:34px; }
+
+    .btn { display:inline-flex; align-items:center; gap:8px; padding:10px 20px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; border:1px solid transparent; font-family:'Inter',sans-serif; transition:all 0.15s; line-height:1; }
+    .btn-primary { background:var(--orange); color:white; border-color:var(--orange); }
+    .btn-primary:hover { background:#a13509; }
+    .btn-primary:disabled { opacity:0.5; cursor:not-allowed; background:var(--orange); }
+    .btn-outline { background:var(--surface); color:var(--ink2); border-color:var(--border2); font-weight:500; }
+    .btn-outline:hover { border-color:var(--orange3); color:var(--orange); background:var(--orange-bg); }
+    .btn-block { width:100%; justify-content:center; padding:13px 20px; font-size:14px; }
+
+    .sample-row { display:flex; align-items:center; gap:10px; margin-top:18px; padding-top:18px; border-top:1px dashed var(--border); flex-wrap:wrap; }
+    .sample-label { font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink3); }
+    .sample-btn { font-size:12px; }
+
+    /* Pipeline status panel */
+    .pipeline { display:none; }
+    .pipeline.active { display:block; }
+    .step-list { list-style:none; }
+    .step { display:flex; align-items:flex-start; gap:14px; padding:12px 0; border-bottom:1px solid var(--border); }
+    .step:last-child { border-bottom:none; }
+    .step-marker { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:12px; font-weight:600; transition:all 0.3s; background:var(--bg); border:1.5px solid var(--border2); color:var(--ink3); }
+    .step.pending .step-marker { background:var(--bg); border-color:var(--border2); color:var(--ink3); }
+    .step.active .step-marker { background:var(--orange); border-color:var(--orange); color:white; box-shadow:0 0 0 4px var(--orange-bg); }
+    .step.active .step-marker::after { content:''; position:absolute; width:32px; height:32px; border-radius:50%; border:2px solid var(--orange3); animation:ping 1.4s ease-out infinite; opacity:0; }
+    .step-marker { position:relative; }
+    @keyframes ping { 0% { transform:scale(1); opacity:0.6; } 100% { transform:scale(1.6); opacity:0; } }
+    .step.done .step-marker { background:var(--green); border-color:var(--green); color:white; }
+    .step.error .step-marker { background:var(--red); border-color:var(--red); color:white; }
+    .step-body { flex:1; min-width:0; }
+    .step-name { font-size:13px; font-weight:600; color:var(--ink); margin-bottom:2px; }
+    .step.pending .step-name { color:var(--ink3); font-weight:500; }
+    .step-detail { font-size:12px; color:var(--ink3); }
+    .step.done .step-detail { color:var(--green); }
+    .step.error .step-detail { color:var(--red); }
+    .step-time { font-size:11px; color:var(--ink3); font-variant-numeric:tabular-nums; flex-shrink:0; padding-top:8px; }
+
+    /* Results panel */
+    .results { display:none; }
+    .results.active { display:block; }
+    .result-section { margin-bottom:20px; }
+    .result-section:last-child { margin-bottom:0; }
+    .result-label { font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink3); margin-bottom:8px; }
+    .result-title { font-family:'Playfair Display',serif; font-size:24px; font-weight:700; color:var(--ink); line-height:1.25; letter-spacing:-0.01em; margin-bottom:8px; }
+    .result-excerpt { font-size:14px; color:var(--ink2); line-height:1.6; }
+    .meta-grid { display:grid; grid-template-columns:1fr; gap:12px; }
+    .meta-item { background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:12px 14px; }
+    .meta-key { font-size:10px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink3); margin-bottom:4px; display:flex; align-items:center; justify-content:space-between; }
+    .meta-len { color:var(--orange); font-weight:600; font-size:10px; font-variant-numeric:tabular-nums; }
+    .meta-len.over { color:var(--red); }
+    .meta-val { font-size:13px; color:var(--ink); font-weight:500; word-break:break-word; }
+    .meta-val.mono { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px; color:var(--orange); }
+    .keyword-row { display:flex; flex-wrap:wrap; gap:6px; }
+    .kw { display:inline-flex; align-items:center; font-size:12px; font-weight:500; padding:4px 10px; border-radius:6px; background:var(--orange-bg); color:var(--orange); border:1px solid var(--orange-soft); }
+
+    .post-link { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:16px 18px; background:linear-gradient(135deg, var(--orange-bg) 0%, var(--orange-soft) 100%); border:1px solid var(--orange-soft); border-radius:10px; margin-bottom:8px; }
+    .post-link-info { flex:1; min-width:0; }
+    .post-link-label { font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--orange); margin-bottom:4px; }
+    .post-link-url { font-size:13px; color:var(--ink); font-weight:500; word-break:break-all; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .post-link a { color:var(--orange); text-decoration:none; font-weight:600; flex-shrink:0; padding:8px 14px; background:white; border:1px solid var(--orange); border-radius:7px; font-size:12px; transition:all 0.15s; }
+    .post-link a:hover { background:var(--orange); color:white; }
+
+    .status { margin-top:14px; padding:10px 14px; border-radius:8px; font-size:13px; display:flex; align-items:flex-start; gap:8px; }
+    .status.info { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
+    .status.success { background:var(--green-bg); color:var(--green); border:1px solid #bbf7d0; }
+    .status.error { background:var(--red-bg); color:var(--red); border:1px solid #fecaca; }
+    .status-icon { flex-shrink:0; margin-top:1px; }
+
+    .footer { margin-top:48px; padding-top:24px; border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; font-size:12px; color:var(--ink3); }
+    .footer a { color:var(--orange); text-decoration:none; }
+    .footer a:hover { text-decoration:underline; }
+
+    @media (max-width: 640px) {
+      nav { padding: 0 16px; }
+      .nav-product, .nav-links { display:none; }
+      .page { padding:32px 16px 60px; }
+      .field-row { grid-template-columns:1fr; }
+      .footer { flex-direction:column; gap:8px; align-items:flex-start; }
+      .post-link { flex-direction:column; align-items:flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="nav-logo">
+      <div class="nav-icon">C</div>
+      <span class="nav-name">Cenred AI</span>
+      <span class="nav-sep"></span>
+      <span class="nav-product">AI Content &amp; SEO Workflow</span>
+    </div>
+    <div class="nav-links">
+      <a class="nav-link" href="https://cenredai.bizguro.net" target="_blank" rel="noopener">Portfolio</a>
+      <a class="nav-link" href="https://github.com/Cenred-AI" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </nav>
+
+  <main class="page">
+    <section class="hero">
+      <span class="hero-label"><span class="hero-dot"></span>Portfolio Project 4 of 5</span>
+      <h1>Topic in → <em>published post</em> out.<br/>In under 2 minutes.</h1>
+      <p class="hero-desc">Enter a topic. n8n routes it through three Claude calls — research, writing, SEO — then publishes a draft directly to a Ghost CMS instance. No human writing required.</p>
+    </section>
+
+    <!-- INPUT CARD -->
+    <div class="card" id="input-card">
+      <div class="card-header">
+        <div class="card-step">1</div>
+        <div class="card-title">Submit a topic</div>
+        <div class="card-sub">Form → n8n webhook</div>
+      </div>
+      <div class="card-body">
+        <form id="content-form">
+          <div class="field-row full">
+            <div class="field">
+              <label class="field-label" for="topic">Topic <span class="field-hint">— what should the post be about?</span></label>
+              <input type="text" id="topic" name="topic" placeholder="e.g. How small businesses can automate invoicing with AI" required maxlength="200" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label" for="keyword">Focus keyword <span class="field-hint">— optional</span></label>
+              <input type="text" id="keyword" name="keyword" placeholder="e.g. AI invoicing" maxlength="80" />
+            </div>
+            <div class="field">
+              <label class="field-label" for="language">Language</label>
+              <select id="language" name="language">
+                <option value="English">English</option>
+                <option value="Spanish">Spanish</option>
+                <option value="French">French</option>
+                <option value="German">German</option>
+                <option value="Portuguese">Portuguese</option>
+                <option value="Italian">Italian</option>
+              </select>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block" id="submit-btn">
+            <span id="submit-text">Generate &amp; publish</span>
+          </button>
+          <div class="sample-row">
+            <span class="sample-label">Try a sample:</span>
+            <button type="button" class="btn btn-outline sample-btn" data-topic="5 Ways AI is Changing Small Business Operations in 2026" data-keyword="AI for small business">AI &amp; small business</button>
+            <button type="button" class="btn btn-outline sample-btn" data-topic="Beginner's Guide to Automating Your E-commerce Store with n8n" data-keyword="n8n e-commerce automation">n8n e-commerce</button>
+            <button type="button" class="btn btn-outline sample-btn" data-topic="How to Use ChatGPT and Claude for Content Marketing Without Losing Your Brand Voice" data-keyword="AI content marketing">AI brand voice</button>
+          </div>
+          <div id="form-status"></div>
+        </form>
+      </div>
+    </div>
+
+    <!-- PIPELINE STATUS CARD -->
+    <div class="card pipeline" id="pipeline-card">
+      <div class="card-header">
+        <div class="card-step">2</div>
+        <div class="card-title">Pipeline running</div>
+        <div class="card-sub" id="pipeline-elapsed">0.0s</div>
+      </div>
+      <div class="card-body">
+        <ul class="step-list" id="step-list">
+          <li class="step pending" data-step="1"><div class="step-marker">1</div><div class="step-body"><div class="step-name">Webhook received</div><div class="step-detail">n8n picks up the form submission</div></div><div class="step-time"></div></li>
+          <li class="step pending" data-step="2"><div class="step-marker">2</div><div class="step-body"><div class="step-name">Claude — Research &amp; outline</div><div class="step-detail">Building 5-section outline with target audience</div></div><div class="step-time"></div></li>
+          <li class="step pending" data-step="3"><div class="step-marker">3</div><div class="step-body"><div class="step-name">Claude — Full draft</div><div class="step-detail">Writing 600-900 word HTML body</div></div><div class="step-time"></div></li>
+          <li class="step pending" data-step="4"><div class="step-marker">4</div><div class="step-body"><div class="step-name">Claude — SEO meta</div><div class="step-detail">Title, description, slug, focus keywords</div></div><div class="step-time"></div></li>
+          <li class="step pending" data-step="5"><div class="step-marker">5</div><div class="step-body"><div class="step-name">Assemble Ghost payload</div><div class="step-detail">Combining body + SEO into post object</div></div><div class="step-time"></div></li>
+          <li class="step pending" data-step="6"><div class="step-marker">6</div><div class="step-body"><div class="step-name">Ghost — Create post</div><div class="step-detail">Publishing draft via Admin API</div></div><div class="step-time"></div></li>
+          <li class="step pending" data-step="7"><div class="step-marker">7</div><div class="step-body"><div class="step-name">Respond to UI</div><div class="step-detail">Returning post URL and metadata</div></div><div class="step-time"></div></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- RESULTS CARD -->
+    <div class="card results" id="results-card">
+      <div class="card-header">
+        <div class="card-step">3</div>
+        <div class="card-title">Published</div>
+        <div class="card-sub" id="results-timing"></div>
+      </div>
+      <div class="card-body">
+        <div class="post-link">
+          <div class="post-link-info">
+            <div class="post-link-label">Ghost CMS draft</div>
+            <div class="post-link-url" id="result-url">—</div>
+          </div>
+          <a id="result-link" href="#" target="_blank" rel="noopener">View in Ghost →</a>
+        </div>
+
+        <div class="result-section">
+          <div class="result-label">Generated title</div>
+          <div class="result-title" id="result-title">—</div>
+        </div>
+
+        <div class="result-section">
+          <div class="result-label">Excerpt</div>
+          <div class="result-excerpt" id="result-excerpt">—</div>
+        </div>
+
+        <div class="result-section">
+          <div class="result-label">SEO metadata</div>
+          <div class="meta-grid">
+            <div class="meta-item">
+              <div class="meta-key">Meta title <span class="meta-len" id="meta-title-len"></span></div>
+              <div class="meta-val" id="result-meta-title">—</div>
+            </div>
+            <div class="meta-item">
+              <div class="meta-key">Meta description <span class="meta-len" id="meta-desc-len"></span></div>
+              <div class="meta-val" id="result-meta-desc">—</div>
+            </div>
+            <div class="meta-item">
+              <div class="meta-key">URL slug</div>
+              <div class="meta-val mono" id="result-slug">—</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="result-section">
+          <div class="result-label">Focus keywords</div>
+          <div class="keyword-row" id="result-keywords"></div>
+        </div>
+
+        <button type="button" class="btn btn-outline btn-block" id="reset-btn" style="margin-top:8px;">Run another topic</button>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <div>Built with n8n + Claude API + Ghost CMS</div>
+      <div>By <a href="https://cenredai.bizguro.net" target="_blank" rel="noopener">Cenred (Cj)</a> · April 2026</div>
+    </footer>
+  </main>
+
+  <script>
+    // ============================================================
+    // Config
+    // ============================================================
+    // The Netlify proxy hides the n8n webhook URL. If you'd rather
+    // hit n8n directly, replace this with your n8n production URL.
+    const TRIGGER_URL = '/.netlify/functions/trigger';
+
+    // Approximate step durations (ms). The full pipeline typically
+    // takes 60-90s; we animate forward through the steps and snap
+    // to the final state when the actual response lands.
+    const STEP_DURATIONS = {
+      1: 800,    // webhook
+      2: 8000,   // outline
+      3: 28000,  // draft
+      4: 6000,   // seo
+      5: 700,    // assemble
+      6: 4000,   // ghost
+      7: 500,    // respond
+    };
+
+    // ============================================================
+    // DOM helpers
+    // ============================================================
+    const $ = (id) => document.getElementById(id);
+    const form = $('content-form');
+    const submitBtn = $('submit-btn');
+    const submitText = $('submit-text');
+    const formStatus = $('form-status');
+    const pipelineCard = $('pipeline-card');
+    const resultsCard = $('results-card');
+    const stepList = $('step-list');
+    const elapsed = $('pipeline-elapsed');
+    const resetBtn = $('reset-btn');
+
+    // ============================================================
+    // Sample buttons
+    // ============================================================
+    document.querySelectorAll('.sample-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $('topic').value = btn.dataset.topic || '';
+        $('keyword').value = btn.dataset.keyword || '';
+        $('topic').focus();
+      });
+    });
+
+    // ============================================================
+    // Form submit → trigger pipeline
+    // ============================================================
+    let stepTimers = [];
+    let elapsedTimer = null;
+    let runStartedAt = 0;
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const topic = $('topic').value.trim();
+      if (!topic) return;
+
+      const payload = {
+        topic,
+        keyword: $('keyword').value.trim() || null,
+        language: $('language').value,
+        startTs: Date.now(),
+      };
+
+      startRun(payload);
+
+      try {
+        const res = await fetch(TRIGGER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await safeJson(res);
+
+        if (!res.ok) {
+          const errMsg = (data && data.error) || `Pipeline failed (${res.status})`;
+          throw new Error(errMsg);
+        }
+
+        if (data && data.ok === false && data.error) {
+          throw new Error(data.error);
+        }
+
+        finishRun(data);
+      } catch (err) {
+        failRun(err.message || 'Unexpected error');
+      }
+    });
+
+    resetBtn.addEventListener('click', () => {
+      resetUI();
+      $('topic').focus();
+    });
+
+    // ============================================================
+    // Pipeline state machine
+    // ============================================================
+    function startRun(payload) {
+      // Lock the form
+      submitBtn.disabled = true;
+      submitText.textContent = 'Running…';
+      formStatus.innerHTML = '';
+
+      // Reset + show pipeline panel
+      resultsCard.classList.remove('active');
+      pipelineCard.classList.add('active');
+      resetSteps();
+
+      // Start the elapsed clock + step animation
+      runStartedAt = Date.now();
+      tickElapsed();
+      elapsedTimer = setInterval(tickElapsed, 100);
+
+      animateSteps();
+
+      // Scroll the pipeline into view
+      setTimeout(() => pipelineCard.scrollIntoView({ behavior:'smooth', block:'start' }), 80);
+    }
+
+    function animateSteps() {
+      // Sequentially mark each step active → done according to STEP_DURATIONS.
+      // Stop at step 7 — we wait for the actual response to mark it done.
+      let cumulative = 0;
+      const order = [1, 2, 3, 4, 5, 6, 7];
+      // Activate step 1 immediately
+      activateStep(1);
+
+      for (let i = 0; i < order.length; i++) {
+        const step = order[i];
+        const dur = STEP_DURATIONS[step];
+        const next = order[i + 1];
+        const t = setTimeout(() => {
+          // Don't auto-complete the final step — leave it active until response
+          if (step === 7) return;
+          completeStep(step);
+          if (next) activateStep(next);
+        }, cumulative + dur);
+        stepTimers.push(t);
+        cumulative += dur;
+      }
+    }
+
+    function finishRun(data) {
+      // Snap any remaining steps to done
+      clearStepTimers();
+      for (let s = 1; s <= 7; s++) completeStep(s);
+      stopElapsed();
+
+      // Render results
+      renderResults(data);
+
+      // Reveal results card
+      pipelineCard.classList.remove('active');
+      resultsCard.classList.add('active');
+      submitBtn.disabled = false;
+      submitText.textContent = 'Generate & publish';
+      setTimeout(() => resultsCard.scrollIntoView({ behavior:'smooth', block:'start' }), 80);
+    }
+
+    function failRun(message) {
+      clearStepTimers();
+      stopElapsed();
+      // Find first non-completed step and mark it as error
+      const steps = stepList.querySelectorAll('.step');
+      let marked = false;
+      steps.forEach(li => {
+        if (marked) return;
+        if (li.classList.contains('active') || li.classList.contains('pending')) {
+          li.classList.remove('active', 'pending');
+          li.classList.add('error');
+          li.querySelector('.step-detail').textContent = message;
+          marked = true;
+        }
+      });
+      if (!marked) {
+        // Edge case: every step completed but response failed — flag step 7
+        const last = stepList.querySelector('[data-step="7"]');
+        last.classList.remove('active','done','pending');
+        last.classList.add('error');
+        last.querySelector('.step-detail').textContent = message;
+      }
+
+      submitBtn.disabled = false;
+      submitText.textContent = 'Generate & publish';
+      formStatus.innerHTML = `<div class="status error"><span class="status-icon">⚠</span>Pipeline failed: ${escapeHtml(message)}</div>`;
+    }
+
+    // ============================================================
+    // Step UI helpers
+    // ============================================================
+    function activateStep(n) {
+      const li = stepList.querySelector(`[data-step="${n}"]`);
+      if (!li) return;
+      li.classList.remove('pending', 'done', 'error');
+      li.classList.add('active');
+    }
+
+    function completeStep(n) {
+      const li = stepList.querySelector(`[data-step="${n}"]`);
+      if (!li) return;
+      li.classList.remove('pending', 'active', 'error');
+      li.classList.add('done');
+      const t = li.querySelector('.step-time');
+      if (t && !t.textContent) {
+        t.textContent = formatElapsedFor(n);
+      }
+    }
+
+    function resetSteps() {
+      stepList.querySelectorAll('.step').forEach(li => {
+        li.classList.remove('active', 'done', 'error');
+        li.classList.add('pending');
+        li.querySelector('.step-time').textContent = '';
+      });
+    }
+
+    function clearStepTimers() {
+      stepTimers.forEach(t => clearTimeout(t));
+      stepTimers = [];
+    }
+
+    // ============================================================
+    // Elapsed clock
+    // ============================================================
+    function tickElapsed() {
+      const ms = Date.now() - runStartedAt;
+      elapsed.textContent = (ms / 1000).toFixed(1) + 's';
+    }
+
+    function stopElapsed() {
+      clearInterval(elapsedTimer);
+      elapsedTimer = null;
+    }
+
+    function formatElapsedFor() {
+      // Just show the current elapsed time on completion stamps
+      const ms = Date.now() - runStartedAt;
+      return (ms / 1000).toFixed(1) + 's';
+    }
+
+    // ============================================================
+    // Results render
+    // ============================================================
+    function renderResults(data) {
+      $('result-title').textContent = data.title || '(no title)';
+      $('result-excerpt').textContent = data.excerpt || data.metaDescription || '—';
+
+      $('result-meta-title').textContent = data.metaTitle || '—';
+      const mtLen = (data.metaTitle || '').length;
+      const mtEl = $('meta-title-len');
+      mtEl.textContent = `${mtLen} / 60`;
+      mtEl.classList.toggle('over', mtLen > 60);
+
+      $('result-meta-desc').textContent = data.metaDescription || '—';
+      const mdLen = (data.metaDescription || '').length;
+      const mdEl = $('meta-desc-len');
+      mdEl.textContent = `${mdLen} / 155`;
+      mdEl.classList.toggle('over', mdLen > 155);
+
+      $('result-slug').textContent = data.slug || '—';
+
+      const kwBox = $('result-keywords');
+      kwBox.innerHTML = '';
+      const kws = Array.isArray(data.focusKeywords) ? data.focusKeywords : [];
+      if (kws.length === 0) {
+        kwBox.innerHTML = '<span class="meta-val" style="color:var(--ink3)">No keywords returned</span>';
+      } else {
+        kws.forEach(kw => {
+          const span = document.createElement('span');
+          span.className = 'kw';
+          span.textContent = kw;
+          kwBox.appendChild(span);
+        });
+      }
+
+      const url = data.postUrl || '';
+      $('result-url').textContent = url || 'URL not returned';
+      const link = $('result-link');
+      if (url) {
+        link.href = url;
+        link.style.display = '';
+      } else {
+        link.style.display = 'none';
+      }
+
+      const ms = (data.timing && data.timing.totalMs) || (Date.now() - runStartedAt);
+      $('results-timing').textContent = `Completed in ${(ms / 1000).toFixed(1)}s`;
+    }
+
+    function resetUI() {
+      pipelineCard.classList.remove('active');
+      resultsCard.classList.remove('active');
+      formStatus.innerHTML = '';
+      submitBtn.disabled = false;
+      submitText.textContent = 'Generate & publish';
+      resetSteps();
+    }
+
+    // ============================================================
+    // Utilities
+    // ============================================================
+    async function safeJson(res) {
+      try { return await res.json(); } catch (e) { return null; }
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({
+        '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+      }[c]));
+    }
+  </script>
+</body>
+</html>

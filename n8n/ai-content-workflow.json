@@ -1,0 +1,193 @@
+{
+  "name": "AI Content & SEO Workflow — Topic to Ghost Post",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-content",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook (form submit)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 400],
+      "webhookId": "ai-content"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "anthropicApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 1024,\n  \"temperature\": 0.7,\n  \"system\": \"You are a senior content strategist.\\n\\nTASK\\nGiven a topic and optional keyword, produce a structured blog post outline in JSON format.\\n\\nOUTPUT FORMAT (CRITICAL)\\nReturn ONLY valid JSON — no prose, no code fences, no preamble. The JSON must match this shape:\\n{\\n  \\\"title\\\": \\\"<engaging H1 title — max 70 chars>\\\",\\n  \\\"targetAudience\\\": \\\"<one-sentence description of who this post is for>\\\",\\n  \\\"sections\\\": [\\n    { \\\"heading\\\": \\\"<section heading>\\\", \\\"keyPoints\\\": [\\\"<point 1>\\\", \\\"<point 2>\\\", \\\"<point 3>\\\"] }\\n  ]\\n}\\n\\nRULES\\n- Generate exactly 5 sections.\\n- Each section must have 3-5 key points.\\n- The title should be SEO-friendly and include the keyword if provided.\\n- Sections must flow logically: intro hook → 3 body sections → practical takeaway.\\n- Write all content in the requested language.\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Topic: {{ $json.body.topic }}\\nKeyword: {{ $json.body.keyword || 'none' }}\\nLanguage: {{ $json.body.language || 'English' }}\\n\\nReturn the outline JSON now.\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "claude-outline",
+      "name": "Claude — Research & Outline",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 400],
+      "credentials": {
+        "anthropicApi": {
+          "id": "REPLACE_WITH_ANTHROPIC_CRED_ID",
+          "name": "Anthropic — Claude"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "anthropicApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 4096,\n  \"temperature\": 0.7,\n  \"system\": \"You are an expert blog writer.\\n\\nTASK\\nExpand the provided outline into a complete blog post.\\n\\nLENGTH\\n600-900 words total. Aim for the middle of that range.\\n\\nOUTPUT FORMAT (CRITICAL)\\nReturn ONLY clean HTML — no markdown, no code fences, no preamble, no closing remarks. Use ONLY these tags:\\n- <h2> for section headings (do NOT include the H1 title — Ghost renders the title separately)\\n- <p> for paragraphs\\n- <ul><li> for bullet lists where appropriate\\n\\nWRITING RULES\\n- Write for the stated target audience.\\n- No fluff, no 'in this article we will...' opener. Lead with value in the first sentence.\\n- Use short paragraphs (2-4 sentences each).\\n- Use bullet lists when listing 3+ items.\\n- End with a brief practical takeaway, NOT a generic 'in conclusion' paragraph.\\n- Write in the requested language.\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Outline (JSON):\\n{{ $('Claude — Research & Outline').item.json.content[0].text }}\\n\\nLanguage: {{ $('Webhook (form submit)').item.json.body.language || 'English' }}\\n\\nReturn the full blog post HTML now.\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "claude-draft",
+      "name": "Claude — Full Draft",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 400],
+      "credentials": {
+        "anthropicApi": {
+          "id": "REPLACE_WITH_ANTHROPIC_CRED_ID",
+          "name": "Anthropic — Claude"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "anthropicApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 512,\n  \"temperature\": 0.5,\n  \"system\": \"You are an SEO specialist.\\n\\nTASK\\nGenerate SEO metadata for the provided blog post title and opening content.\\n\\nOUTPUT FORMAT (CRITICAL)\\nReturn ONLY valid JSON — no prose, no code fences, no preamble. The JSON must match this shape:\\n{\\n  \\\"metaTitle\\\": \\\"<60 chars max>\\\",\\n  \\\"metaDescription\\\": \\\"<155 chars max>\\\",\\n  \\\"slug\\\": \\\"<lowercase-hyphenated-url-slug>\\\",\\n  \\\"focusKeywords\\\": [\\\"<kw1>\\\", \\\"<kw2>\\\", \\\"<kw3>\\\", \\\"<kw4>\\\", \\\"<kw5>\\\"]\\n}\\n\\nRULES\\n- metaTitle: max 60 characters, includes the primary keyword, written for click-through.\\n- metaDescription: max 155 characters, summarises the post's value, includes a soft CTA.\\n- slug: 3-6 words, lowercase, hyphen-separated, no stop words, no punctuation.\\n- focusKeywords: exactly 5 keywords, ordered most-important first, relevant to search intent.\\n- All output in the requested language.\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Title and outline (JSON):\\n{{ $('Claude — Research & Outline').item.json.content[0].text }}\\n\\nFirst 600 chars of post:\\n{{ $('Claude — Full Draft').item.json.content[0].text.slice(0, 600) }}\\n\\nKeyword hint: {{ $('Webhook (form submit)').item.json.body.keyword || 'none' }}\\nLanguage: {{ $('Webhook (form submit)').item.json.body.language || 'English' }}\\n\\nReturn the SEO metadata JSON now.\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "claude-seo",
+      "name": "Claude — SEO Meta",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 400],
+      "credentials": {
+        "anthropicApi": {
+          "id": "REPLACE_WITH_ANTHROPIC_CRED_ID",
+          "name": "Anthropic — Claude"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Pull the 3 Claude outputs and assemble a Ghost-compatible post payload.\n// Claude returns content as { content: [{ type: 'text', text: '...' }] } —\n// outline + SEO are JSON strings, draft is HTML.\n\nconst startTs = $('Webhook (form submit)').item.json.body.startTs || Date.now();\n\nfunction extractText(node) {\n  const data = $(node).item.json;\n  if (data && Array.isArray(data.content) && data.content[0] && typeof data.content[0].text === 'string') {\n    return data.content[0].text;\n  }\n  throw new Error(`Could not extract text from ${node}`);\n}\n\nfunction safeParseJson(raw, label) {\n  const trimmed = raw.trim();\n  // Tolerate accidental code fences\n  const cleaned = trimmed.replace(/^```(?:json)?\\s*/i, '').replace(/```$/i, '').trim();\n  try {\n    return JSON.parse(cleaned);\n  } catch (e) {\n    throw new Error(`Failed to parse ${label} JSON: ${e.message}`);\n  }\n}\n\nconst outline = safeParseJson(extractText('Claude — Research & Outline'), 'outline');\nconst html = extractText('Claude — Full Draft').trim();\nconst seo = safeParseJson(extractText('Claude — SEO Meta'), 'seo');\n\n// Ghost expects tags as an array of { name } or comma-separated string.\n// We'll send an array of strings; the Ghost node accepts that.\nconst tags = Array.isArray(seo.focusKeywords) ? seo.focusKeywords.slice(0, 5) : [];\nconst excerpt = (seo.metaDescription || '').slice(0, 200);\n\n// Final payload for the Ghost node\nreturn [{\n  json: {\n    title: outline.title,\n    targetAudience: outline.targetAudience,\n    html,\n    metaTitle: seo.metaTitle,\n    metaDescription: seo.metaDescription,\n    slug: seo.slug,\n    focusKeywords: tags,\n    tags: tags.join(', '),\n    excerpt,\n    startTs,\n  },\n}];"
+      },
+      "id": "assemble-payload",
+      "name": "Assemble Ghost Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 400]
+    },
+    {
+      "parameters": {
+        "source": "adminApi",
+        "resource": "post",
+        "operation": "create",
+        "contentFormat": "html",
+        "title": "={{ $json.title }}",
+        "additionalFields": {
+          "htmlContent": "={{ $json.html }}",
+          "slug": "={{ $json.slug }}",
+          "metaTitle": "={{ $json.metaTitle }}",
+          "metaDescription": "={{ $json.metaDescription }}",
+          "tags": "={{ $json.tags }}",
+          "status": "draft",
+          "featured": false
+        }
+      },
+      "id": "ghost-create",
+      "name": "Ghost — Create Post",
+      "type": "n8n-nodes-base.ghost",
+      "typeVersion": 1,
+      "position": [1440, 400],
+      "credentials": {
+        "ghostAdminApi": {
+          "id": "REPLACE_WITH_GHOST_CRED_ID",
+          "name": "Ghost — Admin API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"ok\": true,\n  \"title\": {{ JSON.stringify($('Assemble Ghost Payload').item.json.title) }},\n  \"excerpt\": {{ JSON.stringify($('Assemble Ghost Payload').item.json.excerpt) }},\n  \"metaTitle\": {{ JSON.stringify($('Assemble Ghost Payload').item.json.metaTitle) }},\n  \"metaDescription\": {{ JSON.stringify($('Assemble Ghost Payload').item.json.metaDescription) }},\n  \"slug\": {{ JSON.stringify($('Assemble Ghost Payload').item.json.slug) }},\n  \"focusKeywords\": {{ JSON.stringify($('Assemble Ghost Payload').item.json.focusKeywords) }},\n  \"postUrl\": {{ JSON.stringify($('Ghost — Create Post').item.json.url) }},\n  \"postId\": {{ JSON.stringify($('Ghost — Create Post').item.json.id) }},\n  \"status\": {{ JSON.stringify($('Ghost — Create Post').item.json.status) }},\n  \"timing\": { \"totalMs\": {{ Date.now() - ($('Assemble Ghost Payload').item.json.startTs || Date.now()) }} }\n}",
+        "options": {}
+      },
+      "id": "respond-ok",
+      "name": "Respond to UI",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1680, 400]
+    }
+  ],
+  "connections": {
+    "Webhook (form submit)": {
+      "main": [[{ "node": "Claude — Research & Outline", "type": "main", "index": 0 }]]
+    },
+    "Claude — Research & Outline": {
+      "main": [[{ "node": "Claude — Full Draft", "type": "main", "index": 0 }]]
+    },
+    "Claude — Full Draft": {
+      "main": [[{ "node": "Claude — SEO Meta", "type": "main", "index": 0 }]]
+    },
+    "Claude — SEO Meta": {
+      "main": [[{ "node": "Assemble Ghost Payload", "type": "main", "index": 0 }]]
+    },
+    "Assemble Ghost Payload": {
+      "main": [[{ "node": "Ghost — Create Post", "type": "main", "index": 0 }]]
+    },
+    "Ghost — Create Post": {
+      "main": [[{ "node": "Respond to UI", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    { "name": "ai-content" },
+    { "name": "seo" },
+    { "name": "claude" },
+    { "name": "ghost" }
+  ],
+  "triggerCount": 1,
+  "versionId": "1.0.0"
+}
